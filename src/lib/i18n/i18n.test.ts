@@ -44,6 +44,7 @@ describe("interface locale", () => {
     assert.equal(parseInterfaceLocale("fr"), "en");
     assert.equal(getMessages("en").tabs.translate, "Translate");
     assert.equal(getMessages("en").appointment.addToCalendar, "Add to Calendar");
+    assert.equal(getMessages("en").interface.rohingyaPreview, "Rohingya — Coming soon");
   });
 
   it("2. switches the resolved message table by locale id", () => {

@@ -14,7 +14,7 @@ export const en = {
     label: "Interface language",
     shortLabel: "Interface",
     english: "English",
-    rohingyaPreview: "Rohingya — Preview",
+    rohingyaPreview: "Rohingya — Coming soon",
   },
   languages: {
     english: "English",

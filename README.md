@@ -46,7 +46,7 @@ Photo OCR  ──┘
 - `src/lib/speech.ts` — English STT only
 - `src/lib/appointment.ts` — deterministic Action Summary extraction (English only; not translation)
 - `src/lib/ics.ts` — `.ics` calendar file from the confirmed Action Summary
-- `src/lib/i18n/` — interface language (English default; Rohingya preview falls back to English)
+- `src/lib/i18n/` — interface language (English default; Rohingya — Coming soon falls back to English)
 
 Rohingya interface translations require native-speaker review before production use. Missing strings intentionally fall back to English rather than being generated. The globe selector changes UI labels only; it does not change English ⇄ Rohingya content direction.
 
