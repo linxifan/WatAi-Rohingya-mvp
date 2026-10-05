@@ -3,12 +3,18 @@
 import { Camera, Mic, Repeat, X } from "lucide-react";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import { ActionSummaryCard } from "@/components/action-summary-card";
 import { PhraseActions, PhraseBody, SourceBadge } from "@/components/phrase-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  extractAppointment,
+  hasActionSummary,
+  type AppointmentSummary,
+} from "@/lib/appointment";
 import { translateDocument } from "@/lib/document";
 import { recognizeEnglish } from "@/lib/ocr";
 import { PHRASE_BY_ID, PHRASES } from "@/lib/phrasebook";
@@ -56,6 +62,22 @@ export function TranslateApp() {
     () => (query.trim() ? translateDocument({ text: query, source, target }) : []),
     [query, source, target],
   );
+  const extractedAppointment = useMemo(() => {
+    if (source !== "en" || !query.trim()) return null;
+    return extractAppointment(query);
+  }, [query, source]);
+  const [appointmentEdits, setAppointmentEdits] = useState<{
+    key: string;
+    summary: AppointmentSummary;
+  } | null>(null);
+  const appointmentSummary =
+    extractedAppointment && appointmentEdits?.key === query
+      ? appointmentEdits.summary
+      : extractedAppointment;
+  const showActionSummary =
+    source === "en" &&
+    extractedAppointment !== null &&
+    hasActionSummary(extractedAppointment, query);
 
   const swap = () => {
     const nextSource = target;
@@ -245,17 +267,25 @@ export function TranslateApp() {
           {!query.trim() ? (
             <EmptyTranslate />
           ) : (
-            <DocumentResults
-              rows={rows}
-              target={target}
-              saved={saved}
-              onSave={(id) => toggleSaved(id)}
-              onShowLarge={setLarge}
-              onRequest={(text) => {
-                addRequest(text);
-                toast.success("Saved for the Welcome Centre phrase list");
-              }}
-            />
+            <div className="space-y-5">
+              <DocumentResults
+                rows={rows}
+                target={target}
+                saved={saved}
+                onSave={(id) => toggleSaved(id)}
+                onShowLarge={setLarge}
+                onRequest={(text) => {
+                  addRequest(text);
+                  toast.success("Saved for the Welcome Centre phrase list");
+                }}
+              />
+              {showActionSummary && appointmentSummary ? (
+                <ActionSummaryCard
+                  summary={appointmentSummary}
+                  onChange={(next) => setAppointmentEdits({ key: query, summary: next })}
+                />
+              ) : null}
+            </div>
           )}
         </TabsContent>
 

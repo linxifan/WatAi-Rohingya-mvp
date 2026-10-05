@@ -25,6 +25,7 @@ If you see `EADDRINUSE`, something is already bound to 43147. Stop that process,
 - Photograph a notice: OCR runs **on this device**, then the same `translate()`
 - Save lines, show a match large across the desk
 - Phrasebook browse
+- After an **English** appointment notice is translated, an Action Summary card lists date, time, location, and what to bring — extracted with regex from the original English, never from the Rohingya lines, and never guessed. Fields are editable. Add to Calendar is disabled for now.
 
 Photos never leave the phone. Tesseract.js reads them in the browser.
 
@@ -43,6 +44,13 @@ Photo OCR  ──┘
 - `src/lib/document.ts` — `translateDocument()` maps segments through `translate()`
 - `src/lib/ocr.ts` — on-device English OCR
 - `src/lib/speech.ts` — English STT only
+- `src/lib/appointment.ts` — deterministic Action Summary extraction (English only; not translation)
+
+```bash
+npm test
+```
+
+Extractor tests live in `src/lib/appointment.test.ts`. They cover the sample appointment notice and the “leave it unknown” cases.
 
 ## Phrase sources
 
