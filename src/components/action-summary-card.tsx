@@ -1,10 +1,13 @@
 "use client";
 
 import { CalendarPlus, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { AppointmentSummary } from "@/lib/appointment";
+import { downloadIcsFile } from "@/lib/download-ics";
+import { buildAppointmentIcs, canAddToCalendar, icsFilename } from "@/lib/ics";
 
 function optionalField(value: string): string | null {
   return value.length ? value : null;
@@ -20,6 +23,17 @@ export function ActionSummaryCard({
   const setItem = (index: number, value: string) => {
     const actionItems = summary.actionItems.map((item, i) => (i === index ? value : item));
     onChange({ ...summary, actionItems });
+  };
+
+  const calendarReady = canAddToCalendar(summary);
+
+  const addToCalendar = () => {
+    const ics = buildAppointmentIcs(summary);
+    if (!ics) {
+      toast.error("Add a full date with a year and a time before saving to the calendar.");
+      return;
+    }
+    downloadIcsFile(icsFilename(summary), ics);
   };
 
   return (
@@ -101,10 +115,28 @@ export function ActionSummaryCard({
           </Button>
         </div>
 
-        <Button type="button" size="lg" disabled title="Calendar export comes later">
-          <CalendarPlus />
-          Add to Calendar
-        </Button>
+        <div className="space-y-2">
+          <Button
+            type="button"
+            size="lg"
+            disabled={!calendarReady}
+            title={
+              calendarReady
+                ? "Download a calendar event from these details"
+                : "Needs a full date with a year and a time"
+            }
+            onClick={addToCalendar}
+          >
+            <CalendarPlus />
+            Add to Calendar
+          </Button>
+          {calendarReady ? null : (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Add a date with a year and a time (for example October 15, 2026 and 10:30 AM) to
+              enable this. Ambiguous numbers like 05/06/2026 are left unknown on purpose.
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
