@@ -145,7 +145,12 @@ function scorePhrase(query: string, phrase: Phrase): { score: number; exact: boo
     if (candidate.includes(q) || q.includes(candidate)) {
       const overlap =
         Math.min(q.length, candidate.length) / Math.max(q.length, candidate.length);
-      best = Math.max(best, 0.82 + overlap * 0.15);
+      // A long sentence that merely contains a keyword is not a close match.
+      if (overlap >= 0.62) {
+        best = Math.max(best, 0.84 + overlap * 0.14);
+      } else if (overlap >= 0.4) {
+        best = Math.max(best, 0.5 + overlap * 0.25);
+      }
     }
     best = Math.max(best, ratio(q, candidate) * 0.94);
   }

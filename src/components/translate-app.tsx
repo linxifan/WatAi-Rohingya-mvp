@@ -148,7 +148,7 @@ export function TranslateApp() {
 
           {!hasQuery ? (
             <EmptyTranslate />
-          ) : top && top.score >= 0.45 ? (
+          ) : top && top.score >= 0.62 ? (
             <div className="space-y-4">
               <ResultPanel
                 phrase={top.phrase}
