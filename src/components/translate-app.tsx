@@ -1,9 +1,10 @@
 "use client";
 
 import { Camera, Mic, Repeat, X } from "lucide-react";
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { ActionSummaryCard } from "@/components/action-summary-card";
+import { useLocale } from "@/components/locale-provider";
 import { PhraseActions, PhraseBody, SourceBadge } from "@/components/phrase-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   type AppointmentSummary,
 } from "@/lib/appointment";
 import { translateDocument } from "@/lib/document";
+import { formatMessage, localizeSpeechError, type Messages } from "@/lib/i18n";
 import { recognizeEnglish } from "@/lib/ocr";
 import { PHRASE_BY_ID, PHRASES } from "@/lib/phrasebook";
 import { createEnglishListener } from "@/lib/speech";
@@ -29,6 +31,8 @@ const SUGGESTIONS = ["I need a doctor", "Thank you", "I need an interpreter"];
 const emptyIds: string[] = [];
 const emptyRequests: PhraseRequest[] = [];
 
+type PhotoErrorKey = "noText" | "failed" | "sampleFailed";
+
 function subscribeLocal(onChange: () => void) {
   window.addEventListener("storage", onChange);
   window.addEventListener("ruaingga-local", onChange);
@@ -38,13 +42,23 @@ function subscribeLocal(onChange: () => void) {
   };
 }
 
+function sampleLabel(id: string, messages: Messages): string {
+  if (id === "missing-fields") return messages.samples.missing;
+  return messages.samples.complete;
+}
+
 export function TranslateApp() {
+  const { messages } = useLocale();
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [query, setQuery] = useState("");
   const [source, setSource] = useState<Lang>("en");
   const [target, setTarget] = useState<Lang>("rhg");
   const [listening, setListening] = useState(false);
   const [ocrStatus, setOcrStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [ocrError, setOcrError] = useState("");
+  const [ocrError, setOcrError] = useState<PhotoErrorKey | "">("");
   const saved = useSyncExternalStore(subscribeLocal, loadSavedIds, () => emptyIds);
   const requests = useSyncExternalStore(subscribeLocal, loadRequests, () => emptyRequests);
   const [browse, setBrowse] = useState<CategoryId>("greetings");
@@ -88,7 +102,7 @@ export function TranslateApp() {
 
   const startMic = () => {
     if (source !== "en") {
-      toast.error("Voice input is English only. Swap to English first.");
+      toast.error(messages.translation.speakEnglishOnly);
       return;
     }
     if (!listenerRef.current) {
@@ -98,14 +112,14 @@ export function TranslateApp() {
           setListening(false);
         },
         (message) => {
-          toast.error(message);
+          toast.error(localizeSpeechError(message, messagesRef.current));
           setListening(false);
         },
         () => setListening(false),
       );
     }
     if (!listenerRef.current) {
-      toast.error("Voice input is not available in this browser. Type instead.");
+      toast.error(messages.translation.speakUnavailable);
       return;
     }
     setListening(true);
@@ -120,7 +134,7 @@ export function TranslateApp() {
       const text = await recognizeEnglish(file);
       if (!text) {
         setOcrStatus("error");
-        setOcrError("No English text found in that photo. Try a clearer shot.");
+        setOcrError("noText");
         return;
       }
       setSource("en");
@@ -129,25 +143,25 @@ export function TranslateApp() {
       setOcrStatus("idle");
     } catch {
       setOcrStatus("error");
-      setOcrError("Could not read the photo on this device.");
+      setOcrError("failed");
     }
   };
 
-  const sourceLabel = source === "en" ? "English" : "Rohingya";
-  const targetLabel = target === "en" ? "English" : "Rohingya";
+  const sourceLabel = source === "en" ? messages.languages.english : messages.languages.rohingya;
+  const targetLabel = target === "en" ? messages.languages.english : messages.languages.rohingya;
 
   return (
     <>
       <Tabs value={tab} onValueChange={setTab} className="gap-5">
         <TabsList className="h-11 w-full max-w-full bg-[color-mix(in_oklch,var(--muted),white_40%)] p-1">
           <TabsTrigger value="translate" className="h-9 px-3">
-            Translate
+            {messages.tabs.translate}
           </TabsTrigger>
           <TabsTrigger value="browse" className="h-9 px-3">
-            Phrasebook
+            {messages.tabs.phrasebook}
           </TabsTrigger>
           <TabsTrigger value="saved" className="h-9 px-3">
-            Saved
+            {messages.tabs.saved}
           </TabsTrigger>
         </TabsList>
 
@@ -155,27 +169,38 @@ export function TranslateApp() {
           <Card className="bg-card/90 py-4 shadow-sm">
             <CardContent className="space-y-4">
               <div className="sr-only" aria-live="polite">
-                {listening ? "Listening for English." : ""}
-                {ocrStatus === "loading" ? "Reading the photo." : ""}
+                {listening ? messages.translation.listeningStatus : ""}
+                {ocrStatus === "loading" ? messages.photo.readingStatus : ""}
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">{sourceLabel}</p>
-                <Button type="button" variant="outline" size="sm" onClick={swap} aria-label="Swap languages">
-                  <Repeat />
-                  {sourceLabel} ⇄ {targetLabel}
-                </Button>
-                <p className="text-sm font-medium text-right">{targetLabel}</p>
+              <div className="space-y-2">
+                <p className="text-[0.7rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                  {messages.translation.contentLabel}
+                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{sourceLabel}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={swap}
+                    aria-label={messages.languages.swap}
+                  >
+                    <Repeat />
+                    {sourceLabel} ⇄ {targetLabel}
+                  </Button>
+                  <p className="text-sm font-medium text-right">{targetLabel}</p>
+                </div>
               </div>
               <div className="relative">
                 <Textarea
                   id="source-text"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  aria-label={source === "en" ? "English text" : "Rohingya text"}
+                  aria-label={source === "en" ? messages.translation.inputAriaEn : messages.translation.inputAriaRhg}
                   placeholder={
                     source === "en"
-                      ? "Type here, or paste an appointment notice…"
-                      : "Type Rohingya (Rohingyalish)…"
+                      ? messages.translation.inputPlaceholderEn
+                      : messages.translation.inputPlaceholderRhg
                   }
                   className="min-h-32 resize-y pr-12 text-base leading-relaxed"
                 />
@@ -184,7 +209,7 @@ export function TranslateApp() {
                     type="button"
                     className="absolute top-2.5 right-2.5 rounded-full p-1.5 text-muted-foreground hover:bg-muted"
                     onClick={() => setQuery("")}
-                    aria-label="Clear text"
+                    aria-label={messages.translation.clear}
                   >
                     <X className="size-4" />
                   </button>
@@ -201,7 +226,7 @@ export function TranslateApp() {
                     onClick={startMic}
                   >
                     <Mic />
-                    {listening ? "Listening…" : "Speak English"}
+                    {listening ? messages.translation.listening : messages.translation.speak}
                   </Button>
                 ) : null}
                 <Button
@@ -214,7 +239,7 @@ export function TranslateApp() {
                   aria-busy={ocrStatus === "loading"}
                 >
                   <Camera />
-                  {ocrStatus === "loading" ? "Reading photo…" : "Take photo"}
+                  {ocrStatus === "loading" ? messages.photo.reading : messages.photo.takePhoto}
                 </Button>
               </div>
               <input
@@ -223,18 +248,16 @@ export function TranslateApp() {
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                aria-label="Take or choose a photo of a notice"
+                aria-label={messages.photo.chooseAria}
                 onChange={(event) => {
                   void onPhoto(event.target.files?.[0]);
                   event.target.value = "";
                 }}
               />
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Photos stay on this phone. Nothing is uploaded.
-              </p>
-              {ocrStatus === "error" ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">{messages.photo.privacy}</p>
+              {ocrStatus === "error" && ocrError ? (
                 <p className="text-sm text-destructive" role="alert">
-                  {ocrError}
+                  {messages.photo[ocrError]}
                 </p>
               ) : null}
               <div className="space-y-2">
@@ -251,7 +274,7 @@ export function TranslateApp() {
                       setQuery(notice.text);
                     }}
                   >
-                    {notice.label}
+                    {sampleLabel(notice.id, messages)}
                   </Button>
                 ))}
                 <Button
@@ -264,14 +287,16 @@ export function TranslateApp() {
                     const response = await fetch("/sample-appointment-notice.png");
                     if (!response.ok) {
                       setOcrStatus("error");
-                      setOcrError("Could not load the sample photo.");
+                      setOcrError("sampleFailed");
                       return;
                     }
                     const blob = await response.blob();
-                    await onPhoto(new File([blob], "sample-appointment-notice.png", { type: "image/png" }));
+                    await onPhoto(
+                      new File([blob], "sample-appointment-notice.png", { type: "image/png" }),
+                    );
                   }}
                 >
-                  Try a photo of a notice
+                  {messages.photo.trySample}
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -294,18 +319,19 @@ export function TranslateApp() {
           </Card>
 
           {!query.trim() ? (
-            <EmptyTranslate />
+            <EmptyTranslate messages={messages} />
           ) : (
             <div className="space-y-5">
               <DocumentResults
                 rows={rows}
                 target={target}
                 saved={saved}
+                messages={messages}
                 onSave={(id) => toggleSaved(id)}
                 onShowLarge={setLarge}
                 onRequest={(text) => {
                   addRequest(text);
-                  toast.success("Saved for the Welcome Centre phrase list");
+                  toast.success(messages.translation.savedForReview);
                 }}
               />
               {showActionSummary && appointmentSummary ? (
@@ -331,7 +357,7 @@ export function TranslateApp() {
                     : "border border-border bg-card text-foreground"
                 }`}
               >
-                {category.label}
+                {messages.categories[category.id]}
               </button>
             ))}
           </div>
@@ -355,7 +381,7 @@ export function TranslateApp() {
                   <div className="flex items-center gap-2">
                     <SourceBadge source={phrase.source} />
                     <Button type="button" variant="outline" size="sm" onClick={() => setLarge(phrase)}>
-                      Show
+                      {messages.phrase.show}
                     </Button>
                   </div>
                 </CardContent>
@@ -368,10 +394,8 @@ export function TranslateApp() {
           {saved.length === 0 ? (
             <Card>
               <CardContent className="py-2">
-                <p className="font-medium">No saved lines yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Save phrases from a match. They stay on this phone.
-                </p>
+                <p className="font-medium">{messages.saved.emptyTitle}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{messages.saved.emptyBody}</p>
               </CardContent>
             </Card>
           ) : (
@@ -395,7 +419,7 @@ export function TranslateApp() {
           )}
           {requests.length ? (
             <div className="space-y-2">
-              <h2 className="text-sm font-medium">Requested for the phrase list</h2>
+              <h2 className="text-sm font-medium">{messages.saved.requested}</h2>
               {requests.map((item) => (
                 <p key={item.id} className="rounded-lg border border-dashed border-border px-3 py-2 text-sm">
                   {item.english}
@@ -411,13 +435,13 @@ export function TranslateApp() {
           type="button"
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[color-mix(in_oklch,var(--background),var(--primary)_8%)] p-6 text-center"
           onClick={() => setLarge(null)}
-          aria-label="Close large text"
+          aria-label={messages.phrase.closeLarge}
         >
           <SourceBadge source={large.source} />
           <div className="mt-6 max-w-3xl">
             <PhraseBody phrase={large} large face={target} />
           </div>
-          <p className="mt-10 text-sm text-muted-foreground">Tap anywhere to close</p>
+          <p className="mt-10 text-sm text-muted-foreground">{messages.phrase.tapToClose}</p>
         </button>
       ) : null}
     </>
@@ -428,6 +452,7 @@ function DocumentResults({
   rows,
   target,
   saved,
+  messages,
   onSave,
   onShowLarge,
   onRequest,
@@ -435,6 +460,7 @@ function DocumentResults({
   rows: DocumentRow[];
   target: Lang;
   saved: string[];
+  messages: Messages;
   onSave: (id: string) => void;
   onShowLarge: (phrase: Phrase) => void;
   onRequest: (text: string) => void;
@@ -442,18 +468,16 @@ function DocumentResults({
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-medium">
-        {target === "rhg" ? "Rohingya" : "English"}
+        {target === "rhg" ? messages.translation.resultsHeadingRhg : messages.translation.resultsHeadingEn}
       </h2>
-      <p className="text-sm text-muted-foreground">
-        Each line is translated separately. Dates and times stay as written.
-      </p>
+      <p className="text-sm text-muted-foreground">{messages.translation.eachLine}</p>
       {rows.map((row, index) => (
         <Card key={`${row.sourceText}-${index}`} size="sm" className="py-3">
           <CardContent className="space-y-2">
             <p className="text-xs break-words text-muted-foreground">{row.sourceText}</p>
             {row.mode === "passthrough" ? (
               <>
-                <Badge variant="outline">Kept as written</Badge>
+                <Badge variant="outline">{messages.translation.keptAsWritten}</Badge>
                 <p className="font-[family-name:var(--font-display)] break-words text-2xl">
                   {row.outputText}
                 </p>
@@ -463,7 +487,9 @@ function DocumentResults({
               <>
                 <div className="flex flex-wrap gap-2">
                   <SourceBadge source={row.phrase.source} />
-                  {row.matchKind === "exact" ? <Badge variant="outline">Exact match</Badge> : null}
+                  {row.matchKind === "exact" ? (
+                    <Badge variant="outline">{messages.translation.exactMatch}</Badge>
+                  ) : null}
                 </div>
                 <p className="font-[family-name:var(--font-display)] break-words text-2xl leading-snug">
                   {row.outputText}
@@ -478,7 +504,7 @@ function DocumentResults({
             ) : null}
             {row.mode === "unmatched" ? (
               <>
-                <p className="font-medium">No sentence for this line yet</p>
+                <p className="font-medium">{messages.translation.noSentence}</p>
                 {row.result?.gloss.length ? (
                   <ul className="space-y-1">
                     {row.result.gloss.map((item) => (
@@ -494,11 +520,13 @@ function DocumentResults({
                 ) : null}
                 {row.result?.unmatched.length ? (
                   <p className="text-xs break-words text-muted-foreground">
-                    No sentence yet for: {row.result.unmatched.join(", ")}
+                    {formatMessage(messages.translation.noSentenceFor, {
+                      list: row.result.unmatched.join(", "),
+                    })}
                   </p>
                 ) : null}
                 <Button type="button" variant="outline" size="sm" onClick={() => onRequest(row.sourceText)}>
-                  Save this line for review
+                  {messages.translation.saveLine}
                 </Button>
               </>
             ) : null}
@@ -509,15 +537,14 @@ function DocumentResults({
   );
 }
 
-function EmptyTranslate() {
+function EmptyTranslate({ messages }: { messages: Messages }) {
   return (
     <div className="space-y-4">
       <Card size="sm" className="border-dashed">
         <CardContent>
-          <p className="font-medium">Type, speak English, or take a photo of a notice</p>
+          <p className="font-medium">{messages.translation.emptyTitle}</p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Start with the sample appointment notice to see the Rohingya lines and what to bring.
-            Photos stay on this phone. This is not a substitute for an interpreter.
+            {messages.translation.emptyBody}
           </p>
         </CardContent>
       </Card>

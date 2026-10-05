@@ -2,6 +2,7 @@
 
 import { Bookmark, Copy, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "@/components/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Lang, Phrase } from "@/lib/types";
@@ -17,25 +18,26 @@ export function PhraseActions({
   onSave: () => void;
   onShowLarge?: () => void;
 }) {
+  const { messages } = useLocale();
   const copy = async () => {
     await navigator.clipboard.writeText(`${phrase.rhg}\n${phrase.en}`);
-    toast.success("Copied English and Rohingya");
+    toast.success(messages.phrase.copied);
   };
 
   return (
     <div className="flex flex-wrap gap-2">
       <Button type="button" variant="outline" size="lg" onClick={copy}>
         <Copy />
-        Copy
+        {messages.phrase.copy}
       </Button>
       <Button type="button" variant={saved ? "default" : "outline"} size="lg" onClick={onSave}>
         <Bookmark />
-        {saved ? "Saved" : "Save"}
+        {saved ? messages.phrase.saved : messages.phrase.save}
       </Button>
       {onShowLarge ? (
         <Button type="button" variant="secondary" size="lg" onClick={onShowLarge}>
           <Maximize2 />
-          Show large
+          {messages.phrase.showLarge}
         </Button>
       ) : null}
     </div>
@@ -43,12 +45,13 @@ export function PhraseActions({
 }
 
 export function SourceBadge({ source }: { source: Phrase["source"] }) {
+  const { messages } = useLocale();
   if (source === "phrasebook") {
-    return <Badge className="bg-primary/15 text-primary border-0">Published sentence</Badge>;
+    return <Badge className="bg-primary/15 text-primary border-0">{messages.phrase.published}</Badge>;
   }
   return (
     <Badge variant="outline" className="border-amber-700/30 bg-amber-50 text-amber-950">
-      Dictionary draft
+      {messages.phrase.draft}
     </Badge>
   );
 }
