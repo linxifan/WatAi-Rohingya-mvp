@@ -25,7 +25,7 @@ If you see `EADDRINUSE`, something is already bound to 43147. Stop that process,
 - Photograph a notice: OCR runs **on this device**, then the same `translate()`
 - Save lines, show a match large across the desk
 - Phrasebook browse
-- After an **English** appointment notice is translated, an Action Summary card lists date, time, location, and what to bring — extracted with regex from the original English, never from the Rohingya lines, and never guessed. Fields are editable. **Add to Calendar** downloads a `.ics` event from the values on the card (not the raw extract) when a full date with year and a time are present. No Google or Apple login.
+- After an **English** appointment notice is translated, an Action Summary lists date, time, location, and what to bring. Fields are editable. **Add to Calendar** saves an event file from the values on the card when a full date with year and a time are present. No Google or Apple login.
 
 Photos never leave the phone. Tesseract.js reads them in the browser.
 

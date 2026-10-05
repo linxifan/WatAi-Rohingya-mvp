@@ -153,7 +153,11 @@ export function TranslateApp() {
 
         <TabsContent value="translate" className="space-y-5">
           <Card className="bg-card/90 py-4 shadow-sm">
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
+              <div className="sr-only" aria-live="polite">
+                {listening ? "Listening for English." : ""}
+                {ocrStatus === "loading" ? "Reading the photo." : ""}
+              </div>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">{sourceLabel}</p>
                 <Button type="button" variant="outline" size="sm" onClick={swap} aria-label="Swap languages">
@@ -167,9 +171,10 @@ export function TranslateApp() {
                   id="source-text"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
+                  aria-label={source === "en" ? "English text" : "Rohingya text"}
                   placeholder={
                     source === "en"
-                      ? "Type English, or paste a notice…"
+                      ? "Type here, or paste an appointment notice…"
                       : "Type Rohingya (Rohingyalish)…"
                   }
                   className="min-h-32 resize-y pr-12 text-base leading-relaxed"
@@ -179,19 +184,20 @@ export function TranslateApp() {
                     type="button"
                     className="absolute top-2.5 right-2.5 rounded-full p-1.5 text-muted-foreground hover:bg-muted"
                     onClick={() => setQuery("")}
-                    aria-label="Clear"
+                    aria-label="Clear text"
                   >
                     <X className="size-4" />
                   </button>
                 ) : null}
               </div>
-              <p className="text-xs text-muted-foreground">{query.length} characters</p>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className={`grid grid-cols-1 gap-2 ${source === "en" ? "sm:grid-cols-2" : ""}`}>
                 {source === "en" ? (
                   <Button
                     type="button"
                     size="lg"
+                    className="h-11 w-full min-h-11 text-base"
                     variant={listening ? "default" : "outline"}
+                    aria-pressed={listening}
                     onClick={startMic}
                   >
                     <Mic />
@@ -202,44 +208,72 @@ export function TranslateApp() {
                   type="button"
                   size="lg"
                   variant="outline"
+                  className="h-11 w-full min-h-11 text-base"
                   onClick={() => fileRef.current?.click()}
                   disabled={ocrStatus === "loading"}
+                  aria-busy={ocrStatus === "loading"}
                 >
                   <Camera />
-                  {ocrStatus === "loading" ? "Reading photo…" : "Upload / Take photo"}
+                  {ocrStatus === "loading" ? "Reading photo…" : "Take photo"}
                 </Button>
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                aria-label="Take or choose a photo of a notice"
+                onChange={(event) => {
+                  void onPhoto(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Photos stay on this phone. Nothing is uploaded.
+              </p>
+              {ocrStatus === "error" ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {ocrError}
+                </p>
+              ) : null}
+              <div className="space-y-2">
+                {NOTICE_SAMPLES.map((notice, index) => (
+                  <Button
+                    key={notice.id}
+                    type="button"
+                    size="lg"
+                    variant={index === 0 ? "default" : "outline"}
+                    className="h-11 w-full min-h-11 whitespace-normal text-base"
+                    onClick={() => {
+                      setSource("en");
+                      setTarget("rhg");
+                      setQuery(notice.text);
+                    }}
+                  >
+                    {notice.label}
+                  </Button>
+                ))}
                 <Button
                   type="button"
-                  size="lg"
+                  size="sm"
                   variant="ghost"
+                  className="w-full sm:w-auto"
                   disabled={ocrStatus === "loading"}
                   onClick={async () => {
                     const response = await fetch("/sample-appointment-notice.png");
+                    if (!response.ok) {
+                      setOcrStatus("error");
+                      setOcrError("Could not load the sample photo.");
+                      return;
+                    }
                     const blob = await response.blob();
                     await onPhoto(new File([blob], "sample-appointment-notice.png", { type: "image/png" }));
                   }}
                 >
-                  Try sample photo
+                  Try a photo of a notice
                 </Button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(event) => {
-                    void onPhoto(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
               </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Photos are read on this phone with on-device OCR. The image is never uploaded.
-                Translation is the same lookup used for typed text — not a translation API.
-              </p>
-              {ocrStatus === "error" ? (
-                <p className="text-sm text-destructive">{ocrError}</p>
-              ) : null}
               <div className="flex flex-wrap gap-2">
                 {SUGGESTIONS.map((item) => (
                   <button
@@ -250,30 +284,11 @@ export function TranslateApp() {
                       setTarget("rhg");
                       setQuery(item);
                     }}
-                    className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/40 hover:bg-primary/5"
+                    className="rounded-full border border-border bg-background px-3 py-2 text-xs text-foreground hover:border-primary/40 hover:bg-primary/5"
                   >
                     {item}
                   </button>
                 ))}
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Try a notice</p>
-                <div className="flex flex-wrap gap-2">
-                  {NOTICE_SAMPLES.map((notice) => (
-                    <button
-                      key={notice.id}
-                      type="button"
-                      onClick={() => {
-                        setSource("en");
-                        setTarget("rhg");
-                        setQuery(notice.text);
-                      }}
-                      className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      {notice.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -396,6 +411,7 @@ export function TranslateApp() {
           type="button"
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[color-mix(in_oklch,var(--background),var(--primary)_8%)] p-6 text-center"
           onClick={() => setLarge(null)}
+          aria-label="Close large text"
         >
           <SourceBadge source={large.source} />
           <div className="mt-6 max-w-3xl">
@@ -425,18 +441,22 @@ function DocumentResults({
 }) {
   return (
     <div className="space-y-3">
+      <h2 className="text-sm font-medium">
+        {target === "rhg" ? "Rohingya" : "English"}
+      </h2>
       <p className="text-sm text-muted-foreground">
-        {target === "rhg" ? "Rohingya" : "English"} · each line is looked up separately. Dates and
-        times stay as written.
+        Each line is translated separately. Dates and times stay as written.
       </p>
       {rows.map((row, index) => (
         <Card key={`${row.sourceText}-${index}`} size="sm" className="py-3">
           <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground">{row.sourceText}</p>
+            <p className="text-xs break-words text-muted-foreground">{row.sourceText}</p>
             {row.mode === "passthrough" ? (
               <>
                 <Badge variant="outline">Kept as written</Badge>
-                <p className="font-[family-name:var(--font-display)] text-2xl">{row.outputText}</p>
+                <p className="font-[family-name:var(--font-display)] break-words text-2xl">
+                  {row.outputText}
+                </p>
               </>
             ) : null}
             {row.mode === "match" && row.phrase ? (
@@ -445,7 +465,7 @@ function DocumentResults({
                   <SourceBadge source={row.phrase.source} />
                   {row.matchKind === "exact" ? <Badge variant="outline">Exact match</Badge> : null}
                 </div>
-                <p className="font-[family-name:var(--font-display)] text-2xl leading-snug">
+                <p className="font-[family-name:var(--font-display)] break-words text-2xl leading-snug">
                   {row.outputText}
                 </p>
                 <PhraseActions
@@ -466,15 +486,15 @@ function DocumentResults({
                         key={`${item.en}-${item.rhg}`}
                         className="flex justify-between gap-4 rounded-lg bg-muted/60 px-3 py-2 text-sm"
                       >
-                        <span>{item.en}</span>
-                        <span className="font-[family-name:var(--font-display)]">{item.rhg}</span>
+                        <span className="break-words">{item.en}</span>
+                        <span className="font-[family-name:var(--font-display)] break-words">{item.rhg}</span>
                       </li>
                     ))}
                   </ul>
                 ) : null}
                 {row.result?.unmatched.length ? (
-                  <p className="text-xs text-muted-foreground">
-                    No dictionary line yet for: {row.result.unmatched.join(", ")}
+                  <p className="text-xs break-words text-muted-foreground">
+                    No sentence yet for: {row.result.unmatched.join(", ")}
                   </p>
                 ) : null}
                 <Button type="button" variant="outline" size="sm" onClick={() => onRequest(row.sourceText)}>
@@ -494,11 +514,10 @@ function EmptyTranslate() {
     <div className="space-y-4">
       <Card size="sm" className="border-dashed">
         <CardContent>
-          <p className="font-medium">Type, speak English, or photograph a notice</p>
+          <p className="font-medium">Type, speak English, or take a photo of a notice</p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            English ⇄ Rohingya uses one lookup. A photo is OCR’d on this device, then the same
-            function translates each line. Dates stay in English. This is not a substitute for an
-            interpreter.
+            Start with the sample appointment notice to see the Rohingya lines and what to bring.
+            Photos stay on this phone. This is not a substitute for an interpreter.
           </p>
         </CardContent>
       </Card>

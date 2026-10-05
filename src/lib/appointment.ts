@@ -1,3 +1,5 @@
+import { SAMPLE_APPOINTMENT_NOTICE } from "./segment";
+
 export type AppointmentSummary = {
   title: "Appointment";
   date: string | null;
@@ -246,60 +248,16 @@ export function emptyAppointment(): AppointmentSummary {
   };
 }
 
-/** Notices you can paste or tap in the UI. Extraction does not rewrite these strings. */
+/** Notices shown in the translator. Extraction does not rewrite these strings. */
 export const NOTICE_SAMPLES: { id: string; label: string; text: string }[] = [
   {
     id: "welcome-centre-sample",
     label: "Sample appointment notice",
-    text: `APPOINTMENT NOTICE
-
-Your appointment is scheduled for
-October 15 at 10:30 AM.
-
-Please bring:
-- Passport
-- Proof of address
-
-Welcome Centre`,
-  },
-  {
-    id: "one-line",
-    label: "One-line notice",
-    text: "Your appointment is October 15 at 10:30 AM.",
-  },
-  {
-    id: "appointment-date-label",
-    label: "Appointment Date label",
-    text: `Appointment Date: October 15, 2026
-Time: 10:30 AM
-Location: Welcome Centre`,
-  },
-  {
-    id: "numeric-us",
-    label: "Date: 10/15/2026",
-    text: `Appointment
-Date: 10/15/2026
-Time: 10:30 AM
-Please bring your passport and proof of address.`,
-  },
-  {
-    id: "numeric-ca-24h",
-    label: "15/10/2026 · 14:00",
-    text: `Appointment
-Date: 15/10/2026
-Time: 14:00
-Location: Welcome Centre`,
-  },
-  {
-    id: "prose-bring",
-    label: "Please bring your…",
-    text: `Your appointment is October 15 at 10:30 AM.
-Please bring your passport and proof of address.
-Location: Welcome Centre`,
+    text: SAMPLE_APPOINTMENT_NOTICE,
   },
   {
     id: "missing-fields",
-    label: "Notice, missing details",
+    label: "Notice with missing details",
     text: `APPOINTMENT NOTICE
 Please arrive early.`,
   },

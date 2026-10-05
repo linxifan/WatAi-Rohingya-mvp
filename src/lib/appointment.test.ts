@@ -10,7 +10,7 @@ describe("extractAppointment", () => {
   it("1. extracts the sample notice with a bullet bring-list", () => {
     const summary = extractAppointment(SAMPLE_APPOINTMENT_NOTICE);
     assert.equal(summary.title, "Appointment");
-    assert.equal(summary.date, "October 15");
+    assert.equal(summary.date, "October 15, 2026");
     assert.equal(summary.time, "10:30 AM");
     assert.equal(summary.location, "Welcome Centre");
     assert.deepEqual(summary.actionItems, ["Passport", "Proof of address"]);

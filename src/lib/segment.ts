@@ -99,7 +99,7 @@ export function segmentText(text: string): TextSegment[] {
 export const SAMPLE_APPOINTMENT_NOTICE = `APPOINTMENT NOTICE
 
 Your appointment is scheduled for
-October 15 at 10:30 AM.
+October 15, 2026 at 10:30 AM.
 
 Please bring:
 - Passport

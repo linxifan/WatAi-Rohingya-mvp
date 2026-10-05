@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { AppointmentSummary } from "./appointment.ts";
 import { extractAppointment } from "./appointment.ts";
+import { SAMPLE_APPOINTMENT_NOTICE } from "./segment.ts";
 import {
   buildAppointmentIcs,
   canAddToCalendar,
@@ -93,6 +94,17 @@ describe("buildAppointmentIcs", () => {
     assert.match(ics, /\r\nLOCATION:Welcome Centre\r\n/);
     assert.match(ics, /DESCRIPTION:What to bring:\\n- Passport\\n- Proof of address/);
     assert.equal(ics.includes("\n") && !ics.includes("\r\n") ? "bare-lf" : "crlf", "crlf");
+  });
+
+  it("exports the complete sample notice without requiring edits", () => {
+    const extracted = extractAppointment(SAMPLE_APPOINTMENT_NOTICE);
+    assert.equal(extracted.date, "October 15, 2026");
+    assert.equal(extracted.time, "10:30 AM");
+    assert.equal(canAddToCalendar(extracted), true);
+    const ics = buildAppointmentIcs(extracted, { now: NOW, uid: UID });
+    assert.match(ics ?? "", /\r\nDTSTART:20261015T103000\r\n/);
+    assert.match(ics ?? "", /\r\nLOCATION:Welcome Centre\r\n/);
+    assert.match(ics ?? "", /Passport/);
   });
 
   it("uses the edited summary, not the originally extracted text", () => {

@@ -30,27 +30,35 @@ export function ActionSummaryCard({
   const addToCalendar = () => {
     const ics = buildAppointmentIcs(summary);
     if (!ics) {
-      toast.error("Add a full date with a year and a time before saving to the calendar.");
+      toast.error("Add a date with a year and a time before saving to your calendar.");
       return;
     }
     downloadIcsFile(icsFilename(summary), ics);
+    toast.success("Calendar event saved on this device.");
   };
 
   return (
     <Card className="border-primary/25 bg-card py-5 shadow-sm">
       <CardContent className="space-y-5">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-primary uppercase">Action summary</p>
+          <p className="text-xs font-semibold tracking-wide text-primary uppercase">
+            From this notice
+          </p>
           <h2 className="font-[family-name:var(--font-display)] text-2xl">{summary.title}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            Check these details and edit anything that looks wrong. Then add the appointment to
+            your calendar.
+          </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <label className="min-w-0 flex-1 text-xs text-muted-foreground">
+          <label htmlFor="appointment-date" className="min-w-0 flex-1 text-xs text-muted-foreground">
             Date
             <Input
+              id="appointment-date"
               value={summary.date ?? ""}
               placeholder="Unknown"
-              aria-label="Appointment date"
+              autoComplete="off"
               className="mt-1 h-11 text-base"
               onChange={(event) => onChange({ ...summary, date: optionalField(event.target.value) })}
             />
@@ -58,24 +66,26 @@ export function ActionSummaryCard({
           <span className="hidden pb-3 text-muted-foreground sm:inline" aria-hidden>
             ·
           </span>
-          <label className="min-w-0 flex-1 text-xs text-muted-foreground">
+          <label htmlFor="appointment-time" className="min-w-0 flex-1 text-xs text-muted-foreground">
             Time
             <Input
+              id="appointment-time"
               value={summary.time ?? ""}
               placeholder="Unknown"
-              aria-label="Appointment time"
+              autoComplete="off"
               className="mt-1 h-11 text-base"
               onChange={(event) => onChange({ ...summary, time: optionalField(event.target.value) })}
             />
           </label>
         </div>
 
-        <label className="block text-xs text-muted-foreground">
+        <label htmlFor="appointment-location" className="block text-xs text-muted-foreground">
           Location
           <Input
+            id="appointment-location"
             value={summary.location ?? ""}
             placeholder="Unknown"
-            aria-label="Appointment location"
+            autoComplete="off"
             className="mt-1 h-11 text-base"
             onChange={(event) =>
               onChange({ ...summary, location: optionalField(event.target.value) })
@@ -84,11 +94,13 @@ export function ActionSummaryCard({
         </label>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">What to bring</p>
+          <p id="what-to-bring-label" className="text-sm font-medium">
+            What to bring
+          </p>
           {summary.actionItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">Unknown</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2" aria-labelledby="what-to-bring-label">
               {summary.actionItems.map((item, index) => (
                 <li key={index} className="flex items-center gap-2">
                   <span className="text-muted-foreground" aria-hidden>
@@ -97,7 +109,7 @@ export function ActionSummaryCard({
                   <Input
                     value={item}
                     aria-label={`Item to bring ${index + 1}`}
-                    className="h-11 text-base"
+                    className="h-11 min-w-0 flex-1 text-base"
                     onChange={(event) => setItem(index, event.target.value)}
                   />
                 </li>
@@ -119,21 +131,22 @@ export function ActionSummaryCard({
           <Button
             type="button"
             size="lg"
+            className="h-12 w-full min-h-12 text-base"
             disabled={!calendarReady}
-            title={
-              calendarReady
-                ? "Download a calendar event from these details"
-                : "Needs a full date with a year and a time"
-            }
+            aria-describedby={calendarReady ? undefined : "calendar-hint"}
             onClick={addToCalendar}
           >
             <CalendarPlus />
             Add to Calendar
           </Button>
-          {calendarReady ? null : (
+          {calendarReady ? (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Add a date with a year and a time (for example October 15, 2026 and 10:30 AM) to
-              enable this. Ambiguous numbers like 05/06/2026 are left unknown on purpose.
+              Saves an event you can open in the calendar app on this phone.
+            </p>
+          ) : (
+            <p id="calendar-hint" className="text-xs leading-relaxed text-muted-foreground">
+              Add a date with a year and a time to enable this — for example October 15, 2026 and
+              10:30 AM. Missing details stay blank on purpose.
             </p>
           )}
         </div>
