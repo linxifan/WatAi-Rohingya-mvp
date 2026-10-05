@@ -13,6 +13,8 @@ export const CATEGORIES = [
 
 export type CategoryId = (typeof CATEGORIES)[number]["id"];
 
+export type Lang = "en" | "rhg";
+
 export type PhraseSource = "phrasebook" | "composed";
 
 export type Phrase = {
@@ -38,9 +40,37 @@ export type WordGloss = {
   rhg: string;
 };
 
+export type TranslateQuery = {
+  text: string;
+  source: Lang;
+  target: Lang;
+};
+
 export type TranslateResult = {
   query: string;
+  source: Lang;
+  target: Lang;
   matches: PhraseMatch[];
   gloss: WordGloss[];
   unmatched: string[];
 };
+
+export type SegmentKind = "text" | "passthrough";
+
+export type TextSegment = {
+  kind: SegmentKind;
+  text: string;
+};
+
+export type DocumentRowMode = "passthrough" | "match" | "unmatched";
+
+export type DocumentRow = {
+  sourceText: string;
+  outputText: string;
+  mode: DocumentRowMode;
+  result: TranslateResult | null;
+  phrase: Phrase | null;
+  matchKind: MatchKind | null;
+};
+
+export const MATCH_THRESHOLD = 0.62;

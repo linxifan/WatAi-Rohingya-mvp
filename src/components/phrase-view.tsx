@@ -1,11 +1,10 @@
 "use client";
 
-import { Bookmark, Copy, Maximize2, Volume2 } from "lucide-react";
+import { Bookmark, Copy, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { pronunciationGuide, speakRohingya } from "@/lib/speech";
-import type { Phrase } from "@/lib/types";
+import type { Lang, Phrase } from "@/lib/types";
 
 export function PhraseActions({
   phrase,
@@ -25,10 +24,6 @@ export function PhraseActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button type="button" variant="outline" size="lg" onClick={() => speakRohingya(phrase.rhg)}>
-        <Volume2 />
-        Hear (approx.)
-      </Button>
       <Button type="button" variant="outline" size="lg" onClick={copy}>
         <Copy />
         Copy
@@ -49,9 +44,7 @@ export function PhraseActions({
 
 export function SourceBadge({ source }: { source: Phrase["source"] }) {
   if (source === "phrasebook") {
-    return (
-      <Badge className="bg-primary/15 text-primary border-0">Verified sentence</Badge>
-    );
+    return <Badge className="bg-primary/15 text-primary border-0">Published sentence</Badge>;
   }
   return (
     <Badge variant="outline" className="border-amber-700/30 bg-amber-50 text-amber-950">
@@ -60,23 +53,30 @@ export function SourceBadge({ source }: { source: Phrase["source"] }) {
   );
 }
 
-export function PhraseBody({ phrase, large = false }: { phrase: Phrase; large?: boolean }) {
+export function PhraseBody({
+  phrase,
+  large = false,
+  face = "rhg",
+}: {
+  phrase: Phrase;
+  large?: boolean;
+  face?: Lang;
+}) {
+  const primary = face === "rhg" ? phrase.rhg : phrase.en;
+  const secondary = face === "rhg" ? phrase.en : phrase.rhg;
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <p
-        lang="rhg"
+        lang={face === "rhg" ? "rhg" : "en"}
         className={
           large
             ? "font-[family-name:var(--font-display)] text-5xl leading-tight text-foreground sm:text-6xl"
             : "font-[family-name:var(--font-display)] text-3xl leading-snug text-foreground sm:text-4xl"
         }
       >
-        {phrase.rhg}
+        {primary}
       </p>
-      <p className="text-base text-muted-foreground">{phrase.en}</p>
-      <p className="text-xs tracking-wide text-muted-foreground uppercase">
-        How it sounds · {pronunciationGuide(phrase.rhg)}
-      </p>
+      <p className="text-base text-muted-foreground">{secondary}</p>
     </div>
   );
 }

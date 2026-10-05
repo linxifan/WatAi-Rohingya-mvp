@@ -2,12 +2,17 @@ import { LEXICON } from "./lexicon";
 import { PHRASES } from "./phrasebook";
 import type {
   CategoryId,
+  Lang,
   MatchKind,
   Phrase,
   PhraseMatch,
+  TranslateQuery,
   TranslateResult,
   WordGloss,
 } from "./types";
+import { MATCH_THRESHOLD } from "./types";
+
+export { MATCH_THRESHOLD };
 
 const STOPWORDS = new Set([
   "a",
@@ -75,6 +80,7 @@ const SYNONYMS: Record<string, string[]> = {
   clinic: ["hospital"],
   id: ["card"],
   dob: ["birth"],
+  passport: ["passports"],
 };
 
 export function normalize(text: string): string {
@@ -133,11 +139,16 @@ function kindFor(score: number, exact: boolean): MatchKind {
   return "related";
 }
 
-function scorePhrase(query: string, phrase: Phrase): { score: number; exact: boolean } {
+function lookupCandidates(phrase: Phrase, source: Lang): string[] {
+  if (source === "en") return [phrase.en, ...phrase.aliases];
+  return phrase.rhg.split("/").map((part) => part.trim());
+}
+
+function scorePhrase(query: string, phrase: Phrase, source: Lang): { score: number; exact: boolean } {
   const q = normalize(query);
   if (!q) return { score: 0, exact: false };
 
-  const candidates = [phrase.en, ...phrase.aliases].map(normalize);
+  const candidates = lookupCandidates(phrase, source).map(normalize);
   if (candidates.includes(q)) return { score: 1, exact: true };
 
   let best = 0;
@@ -145,7 +156,6 @@ function scorePhrase(query: string, phrase: Phrase): { score: number; exact: boo
     if (candidate.includes(q) || q.includes(candidate)) {
       const overlap =
         Math.min(q.length, candidate.length) / Math.max(q.length, candidate.length);
-      // A long sentence that merely contains a keyword is not a close match.
       if (overlap >= 0.62) {
         best = Math.max(best, 0.84 + overlap * 0.14);
       } else if (overlap >= 0.4) {
@@ -170,25 +180,33 @@ function scorePhrase(query: string, phrase: Phrase): { score: number; exact: boo
         }
       }
     }
-    const recall = hit / qTokens.length;
-    best = Math.max(best, recall * 0.9);
+    best = Math.max(best, (hit / qTokens.length) * 0.9);
   }
 
   return { score: best, exact: false };
 }
 
-export function translate(query: string, category?: CategoryId | "all"): TranslateResult {
-  const trimmed = query.trim();
-  const pool =
-    !category || category === "all"
-      ? PHRASES
-      : PHRASES.filter((phrase) => phrase.category === category);
+/**
+ * The only translation entry point. Audio and photo must call this
+ * (or translateDocument, which calls this per segment). No other module
+ * may implement translation logic.
+ */
+export function translate({ text, source, target }: TranslateQuery): TranslateResult {
+  const trimmed = text.trim();
+  const empty: TranslateResult = {
+    query: trimmed,
+    source,
+    target,
+    matches: [],
+    gloss: [],
+    unmatched: [],
+  };
+  if (!trimmed || source === target) return empty;
 
-  const scored: PhraseMatch[] = pool
-    .map((phrase) => {
-      const { score, exact } = scorePhrase(trimmed, phrase);
-      return { phrase, score, kind: kindFor(score, exact) };
-    })
+  const scored: PhraseMatch[] = PHRASES.map((phrase) => {
+    const { score, exact } = scorePhrase(trimmed, phrase, source);
+    return { phrase, score, kind: kindFor(score, exact) };
+  })
     .filter((row) => row.score >= 0.38)
     .sort((a, b) => b.score - a.score);
 
@@ -203,23 +221,31 @@ export function translate(query: string, category?: CategoryId | "all"): Transla
 
   return {
     query: trimmed,
+    source,
+    target,
     matches,
-    ...glossQuery(trimmed),
+    ...glossQuery(trimmed, source),
   };
 }
 
-export function glossQuery(query: string): { gloss: WordGloss[]; unmatched: string[] } {
+export function outputFor(result: TranslateResult): string | null {
+  const top = result.matches[0];
+  if (!top || top.score < MATCH_THRESHOLD) return null;
+  return result.target === "rhg" ? top.phrase.rhg : top.phrase.en;
+}
+
+export function glossQuery(query: string, source: Lang = "en"): { gloss: WordGloss[]; unmatched: string[] } {
   const gloss: WordGloss[] = [];
   const unmatched: string[] = [];
   const used = new Set<number>();
-
   const words = tokens(query);
+
   for (let i = 0; i < words.length; i++) {
     if (used.has(i)) continue;
     const bigram = `${words[i]} ${words[i + 1] ?? ""}`.trim();
-    const hit = lookupLexeme(bigram) ?? lookupLexeme(words[i]);
+    const hit = lookupLexeme(bigram, source) ?? lookupLexeme(words[i], source);
     if (hit) {
-      if (hit.en.includes(" ")) used.add(i + 1);
+      if (hit.en.includes(" ") || hit.rhg.includes(" ")) used.add(i + 1);
       gloss.push(hit);
     } else if (!STOPWORDS.has(words[i])) {
       unmatched.push(words[i]);
@@ -228,11 +254,14 @@ export function glossQuery(query: string): { gloss: WordGloss[]; unmatched: stri
   return { gloss, unmatched };
 }
 
-function lookupLexeme(raw: string): WordGloss | null {
+function lookupLexeme(raw: string, source: Lang): WordGloss | null {
   const q = normalize(raw);
   if (!q) return null;
   for (const row of LEXICON) {
-    const keys = [row.en, ...(row.aliases ?? [])].map(normalize);
+    const keys =
+      source === "en"
+        ? [row.en, ...(row.aliases ?? [])].map(normalize)
+        : [row.rhg].map(normalize);
     if (keys.includes(q)) return { en: row.en, rhg: row.rhg };
   }
   return null;

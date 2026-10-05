@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, X } from "lucide-react";
+import { Camera, Mic, Repeat, X } from "lucide-react";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { PhraseActions, PhraseBody, SourceBadge } from "@/components/phrase-view";
@@ -9,19 +9,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORIES } from "@/lib/types";
+import { translateDocument } from "@/lib/document";
+import { recognizeEnglish } from "@/lib/ocr";
 import { PHRASE_BY_ID, PHRASES } from "@/lib/phrasebook";
+import { SAMPLE_APPOINTMENT_NOTICE } from "@/lib/segment";
 import { createEnglishListener } from "@/lib/speech";
 import { addRequest, loadRequests, loadSavedIds, toggleSaved, type PhraseRequest } from "@/lib/storage";
-import { phrasesInCategory, translate } from "@/lib/translate";
-import type { CategoryId, Phrase } from "@/lib/types";
+import { phrasesInCategory } from "@/lib/translate";
+import { CATEGORIES, type CategoryId, type DocumentRow, type Lang, type Phrase } from "@/lib/types";
 
 const SUGGESTIONS = [
   "I need a doctor",
   "Thank you",
   "I need an interpreter",
-  "Where is the washroom?",
-  "I don't understand",
+  SAMPLE_APPOINTMENT_NOTICE,
 ];
 
 const emptyIds: string[] = [];
@@ -38,24 +39,41 @@ function subscribeLocal(onChange: () => void) {
 
 export function TranslateApp() {
   const [query, setQuery] = useState("");
+  const [source, setSource] = useState<Lang>("en");
+  const [target, setTarget] = useState<Lang>("rhg");
   const [listening, setListening] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [ocrError, setOcrError] = useState("");
   const saved = useSyncExternalStore(subscribeLocal, loadSavedIds, () => emptyIds);
   const requests = useSyncExternalStore(subscribeLocal, loadRequests, () => emptyRequests);
-  const [browse, setBrowse] = useState<CategoryId | "all">("greetings");
+  const [browse, setBrowse] = useState<CategoryId>("greetings");
   const [large, setLarge] = useState<Phrase | null>(null);
   const [tab, setTab] = useState("translate");
   const listenerRef = useRef<ReturnType<typeof createEnglishListener>>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const result = useMemo(() => translate(query), [query]);
-  const top = result.matches[0];
-  const rest = result.matches.slice(1, 5);
-  const hasQuery = query.trim().length > 0;
+  const rows = useMemo(
+    () => (query.trim() ? translateDocument({ text: query, source, target }) : []),
+    [query, source, target],
+  );
 
-  const onSave = (id: string) => {
-    toggleSaved(id);
+  const swap = () => {
+    const nextSource = target;
+    const nextTarget = source;
+    const joined = rows
+      .map((row) => row.outputText || row.sourceText)
+      .join("\n")
+      .trim();
+    setSource(nextSource);
+    setTarget(nextTarget);
+    if (joined) setQuery(joined);
   };
 
   const startMic = () => {
+    if (source !== "en") {
+      toast.error("Voice input is English only. Swap to English first.");
+      return;
+    }
     if (!listenerRef.current) {
       listenerRef.current = createEnglishListener(
         (text) => {
@@ -77,6 +95,30 @@ export function TranslateApp() {
     listenerRef.current.start();
   };
 
+  const onPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setOcrStatus("loading");
+    setOcrError("");
+    try {
+      const text = await recognizeEnglish(file);
+      if (!text) {
+        setOcrStatus("error");
+        setOcrError("No English text found in that photo. Try a clearer shot.");
+        return;
+      }
+      setSource("en");
+      setTarget("rhg");
+      setQuery(text);
+      setOcrStatus("idle");
+    } catch {
+      setOcrStatus("error");
+      setOcrError("Could not read the photo on this device.");
+    }
+  };
+
+  const sourceLabel = source === "en" ? "English" : "Rohingya";
+  const targetLabel = target === "en" ? "English" : "Rohingya";
+
   return (
     <>
       <Tabs value={tab} onValueChange={setTab} className="gap-5">
@@ -95,16 +137,25 @@ export function TranslateApp() {
         <TabsContent value="translate" className="space-y-5">
           <Card className="bg-card/90 py-4 shadow-sm">
             <CardContent className="space-y-3">
-              <label htmlFor="english" className="text-sm font-medium">
-                English
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">{sourceLabel}</p>
+                <Button type="button" variant="outline" size="sm" onClick={swap} aria-label="Swap languages">
+                  <Repeat />
+                  {sourceLabel} ⇄ {targetLabel}
+                </Button>
+                <p className="text-sm font-medium text-right">{targetLabel}</p>
+              </div>
               <div className="relative">
                 <Textarea
-                  id="english"
+                  id="source-text"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Type what you need to say… I need a doctor"
-                  className="min-h-28 resize-y pr-12 text-base leading-relaxed"
+                  placeholder={
+                    source === "en"
+                      ? "Type English, or paste a notice…"
+                      : "Type Rohingya (Rohingyalish)…"
+                  }
+                  className="min-h-32 resize-y pr-12 text-base leading-relaxed"
                 />
                 {query ? (
                   <button
@@ -117,77 +168,91 @@ export function TranslateApp() {
                   </button>
                 ) : null}
               </div>
+              <p className="text-xs text-muted-foreground">{query.length} characters</p>
               <div className="flex flex-wrap items-center gap-2">
+                {source === "en" ? (
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant={listening ? "default" : "outline"}
+                    onClick={startMic}
+                  >
+                    <Mic />
+                    {listening ? "Listening…" : "Speak English"}
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   size="lg"
-                  variant={listening ? "default" : "outline"}
-                  onClick={startMic}
+                  variant="outline"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={ocrStatus === "loading"}
                 >
-                  <Mic />
-                  {listening ? "Listening…" : "Speak English"}
+                  <Camera />
+                  {ocrStatus === "loading" ? "Reading photo…" : "Upload / Take photo"}
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  Matching happens on this device. Nothing is sent to a translation API.
-                </p>
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="ghost"
+                  disabled={ocrStatus === "loading"}
+                  onClick={async () => {
+                    const response = await fetch("/sample-appointment-notice.png");
+                    const blob = await response.blob();
+                    await onPhoto(new File([blob], "sample-appointment-notice.png", { type: "image/png" }));
+                  }}
+                >
+                  Try sample photo
+                </Button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(event) => {
+                    void onPhoto(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
               </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Photos are read on this phone with on-device OCR. The image is never uploaded.
+                Translation is the same lookup used for typed text — not a translation API.
+              </p>
+              {ocrStatus === "error" ? (
+                <p className="text-sm text-destructive">{ocrError}</p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {SUGGESTIONS.map((item) => (
                   <button
-                    key={item}
+                    key={item.slice(0, 24)}
                     type="button"
-                    onClick={() => setQuery(item)}
+                    onClick={() => {
+                      setSource("en");
+                      setTarget("rhg");
+                      setQuery(item);
+                    }}
                     className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/40 hover:bg-primary/5"
                   >
-                    {item}
+                    {item.includes("APPOINTMENT") ? "Sample appointment notice" : item}
                   </button>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {!hasQuery ? (
+          {!query.trim() ? (
             <EmptyTranslate />
-          ) : top && top.score >= 0.62 ? (
-            <div className="space-y-4">
-              <ResultPanel
-                phrase={top.phrase}
-                kind={top.kind}
-                saved={saved.includes(top.phrase.id)}
-                onSave={() => onSave(top.phrase.id)}
-                onShowLarge={() => setLarge(top.phrase)}
-              />
-              {top.kind !== "exact" ? (
-                <p className="text-sm text-muted-foreground">
-                  Closest match — check that this is what you meant. Related lines are below.
-                </p>
-              ) : null}
-              {rest.length ? (
-                <div className="space-y-2">
-                  <h2 className="text-sm font-medium">Related</h2>
-                  {rest.map((row) => (
-                    <button
-                      key={row.phrase.id}
-                      type="button"
-                      onClick={() => setQuery(row.phrase.en)}
-                      className="flex w-full flex-col rounded-xl border border-border bg-card px-4 py-3 text-left hover:border-primary/30"
-                    >
-                      <span className="font-[family-name:var(--font-display)] text-lg">{row.phrase.rhg}</span>
-                      <span className="text-sm text-muted-foreground">{row.phrase.en}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
           ) : (
-            <NoFullMatch
-              resultGloss={result.gloss}
-              unmatched={result.unmatched}
-              query={query}
-              related={result.matches}
-              onPick={(en) => setQuery(en)}
-              onRequest={() => {
-                addRequest(query);
+            <DocumentResults
+              rows={rows}
+              target={target}
+              saved={saved}
+              onSave={(id) => toggleSaved(id)}
+              onShowLarge={setLarge}
+              onRequest={(text) => {
+                addRequest(text);
                 toast.success("Saved for the Welcome Centre phrase list");
               }}
             />
@@ -211,15 +276,20 @@ export function TranslateApp() {
               </button>
             ))}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {CATEGORIES.find((item) => item.id === browse)?.rhg} · tap a line to translate it, or show it large
-            across the desk.
-          </p>
           <div className="space-y-2">
-            {phrasesInCategory(browse === "all" ? "greetings" : browse).map((phrase) => (
+            {phrasesInCategory(browse).map((phrase) => (
               <Card key={phrase.id} size="sm" className="py-3">
                 <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <button type="button" className="text-left" onClick={() => { setQuery(phrase.en); setTab("translate"); }}>
+                  <button
+                    type="button"
+                    className="text-left"
+                    onClick={() => {
+                      setSource("en");
+                      setTarget("rhg");
+                      setQuery(phrase.en);
+                      setTab("translate");
+                    }}
+                  >
                     <p className="font-[family-name:var(--font-display)] text-xl">{phrase.rhg}</p>
                     <p className="text-sm text-muted-foreground">{phrase.en}</p>
                   </button>
@@ -241,8 +311,7 @@ export function TranslateApp() {
               <CardContent className="py-2">
                 <p className="font-medium">No saved lines yet</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Save the phrases you use at every appointment — housing intake, school enrolment, the health desk.
-                  They stay on this phone.
+                  Save phrases from a match. They stay on this phone.
                 </p>
               </CardContent>
             </Card>
@@ -253,11 +322,11 @@ export function TranslateApp() {
               return (
                 <Card key={id} size="sm">
                   <CardContent className="space-y-3">
-                    <PhraseBody phrase={phrase} />
+                    <PhraseBody phrase={phrase} face={target} />
                     <PhraseActions
                       phrase={phrase}
                       saved
-                      onSave={() => onSave(phrase.id)}
+                      onSave={() => toggleSaved(phrase.id)}
                       onShowLarge={() => setLarge(phrase)}
                     />
                   </CardContent>
@@ -286,7 +355,7 @@ export function TranslateApp() {
         >
           <SourceBadge source={large.source} />
           <div className="mt-6 max-w-3xl">
-            <PhraseBody phrase={large} large />
+            <PhraseBody phrase={large} large face={target} />
           </div>
           <p className="mt-10 text-sm text-muted-foreground">Tap anywhere to close</p>
         </button>
@@ -295,32 +364,84 @@ export function TranslateApp() {
   );
 }
 
-function ResultPanel({
-  phrase,
-  kind,
+function DocumentResults({
+  rows,
+  target,
   saved,
   onSave,
   onShowLarge,
+  onRequest,
 }: {
-  phrase: Phrase;
-  kind: string;
-  saved: boolean;
-  onSave: () => void;
-  onShowLarge: () => void;
+  rows: DocumentRow[];
+  target: Lang;
+  saved: string[];
+  onSave: (id: string) => void;
+  onShowLarge: (phrase: Phrase) => void;
+  onRequest: (text: string) => void;
 }) {
   return (
-    <Card className="border-primary/20 bg-card py-5 shadow-sm">
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Rohingya · Ruáingga</Badge>
-          <SourceBadge source={phrase.source} />
-          {kind === "exact" ? <Badge variant="outline">Exact match</Badge> : null}
-        </div>
-        <PhraseBody phrase={phrase} />
-        {phrase.notes ? <p className="text-sm text-muted-foreground">{phrase.notes}</p> : null}
-        <PhraseActions phrase={phrase} saved={saved} onSave={onSave} onShowLarge={onShowLarge} />
-      </CardContent>
-    </Card>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        {target === "rhg" ? "Rohingya" : "English"} · each line is looked up separately. Dates and
+        times stay as written.
+      </p>
+      {rows.map((row, index) => (
+        <Card key={`${row.sourceText}-${index}`} size="sm" className="py-3">
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">{row.sourceText}</p>
+            {row.mode === "passthrough" ? (
+              <>
+                <Badge variant="outline">Kept as written</Badge>
+                <p className="font-[family-name:var(--font-display)] text-2xl">{row.outputText}</p>
+              </>
+            ) : null}
+            {row.mode === "match" && row.phrase ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <SourceBadge source={row.phrase.source} />
+                  {row.matchKind === "exact" ? <Badge variant="outline">Exact match</Badge> : null}
+                </div>
+                <p className="font-[family-name:var(--font-display)] text-2xl leading-snug">
+                  {row.outputText}
+                </p>
+                <PhraseActions
+                  phrase={row.phrase}
+                  saved={saved.includes(row.phrase.id)}
+                  onSave={() => onSave(row.phrase!.id)}
+                  onShowLarge={() => onShowLarge(row.phrase!)}
+                />
+              </>
+            ) : null}
+            {row.mode === "unmatched" ? (
+              <>
+                <p className="font-medium">No sentence for this line yet</p>
+                {row.result?.gloss.length ? (
+                  <ul className="space-y-1">
+                    {row.result.gloss.map((item) => (
+                      <li
+                        key={`${item.en}-${item.rhg}`}
+                        className="flex justify-between gap-4 rounded-lg bg-muted/60 px-3 py-2 text-sm"
+                      >
+                        <span>{item.en}</span>
+                        <span className="font-[family-name:var(--font-display)]">{item.rhg}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {row.result?.unmatched.length ? (
+                  <p className="text-xs text-muted-foreground">
+                    No dictionary line yet for: {row.result.unmatched.join(", ")}
+                  </p>
+                ) : null}
+                <Button type="button" variant="outline" size="sm" onClick={() => onRequest(row.sourceText)}>
+                  Save this line for review
+                </Button>
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }
 
@@ -329,11 +450,11 @@ function EmptyTranslate() {
     <div className="space-y-4">
       <Card size="sm" className="border-dashed">
         <CardContent>
-          <p className="font-medium">For the desk, and for the person across it</p>
+          <p className="font-medium">Type, speak English, or photograph a notice</p>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Type or speak English. We look up a curated Rohingya line — not a machine guess.
-            Turn the phone around with Show large. For medical, legal, or protection conversations,
-            book a qualified interpreter.
+            English ⇄ Rohingya uses one lookup. A photo is OCR’d on this device, then the same
+            function translates each line. Dates stay in English. This is not a substitute for an
+            interpreter.
           </p>
         </CardContent>
       </Card>
@@ -348,67 +469,5 @@ function EmptyTranslate() {
         ))}
       </div>
     </div>
-  );
-}
-
-function NoFullMatch({
-  resultGloss,
-  unmatched,
-  query,
-  related,
-  onPick,
-  onRequest,
-}: {
-  resultGloss: { en: string; rhg: string }[];
-  unmatched: string[];
-  query: string;
-  related: { phrase: Phrase }[];
-  onPick: (en: string) => void;
-  onRequest: () => void;
-}) {
-  return (
-    <Card className="py-5">
-      <CardContent className="space-y-4">
-        <div>
-          <p className="font-medium">No full sentence for that yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Rohingya is a low-resource language. We will not invent a sentence. Word meanings
-            we do know are below — ask an interpreter for the rest.
-          </p>
-        </div>
-        {resultGloss.length ? (
-          <ul className="space-y-1.5">
-            {resultGloss.map((item) => (
-              <li key={item.en} className="flex justify-between gap-4 rounded-lg bg-muted/60 px-3 py-2 text-sm">
-                <span>{item.en}</span>
-                <span className="font-[family-name:var(--font-display)] text-base">{item.rhg}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {unmatched.length ? (
-          <p className="text-xs text-muted-foreground">No dictionary line yet for: {unmatched.join(", ")}</p>
-        ) : null}
-        <Button type="button" size="lg" onClick={onRequest}>
-          Save “{query.trim().slice(0, 42)}
-          {query.trim().length > 42 ? "…" : ""}” for review
-        </Button>
-        {related.length ? (
-          <div className="space-y-2">
-            <h2 className="text-sm font-medium">Nearby phrases</h2>
-            {related.map((row) => (
-              <button
-                key={row.phrase.id}
-                type="button"
-                onClick={() => onPick(row.phrase.en)}
-                className="block w-full rounded-lg border border-border px-3 py-2 text-left text-sm hover:bg-muted/40"
-              >
-                {row.phrase.en}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
   );
 }
