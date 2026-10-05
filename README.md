@@ -50,7 +50,7 @@ Photo OCR  ──┘
 npm test
 ```
 
-Extractor tests live in `src/lib/appointment.test.ts`. They cover the sample appointment notice and the “leave it unknown” cases.
+Extractor tests live in `src/lib/appointment.test.ts`. They cover labelled dates, Canadian numeric dates, 12- and 24-hour times, prose and bullet bring-lists, and notices with missing fields. The extractor copies the matched text; it does not rewrite it.
 
 ## Phrase sources
 

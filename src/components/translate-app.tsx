@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  NOTICE_SAMPLES,
   extractAppointment,
   hasActionSummary,
   type AppointmentSummary,
@@ -18,18 +19,12 @@ import {
 import { translateDocument } from "@/lib/document";
 import { recognizeEnglish } from "@/lib/ocr";
 import { PHRASE_BY_ID, PHRASES } from "@/lib/phrasebook";
-import { SAMPLE_APPOINTMENT_NOTICE } from "@/lib/segment";
 import { createEnglishListener } from "@/lib/speech";
 import { addRequest, loadRequests, loadSavedIds, toggleSaved, type PhraseRequest } from "@/lib/storage";
 import { phrasesInCategory } from "@/lib/translate";
 import { CATEGORIES, type CategoryId, type DocumentRow, type Lang, type Phrase } from "@/lib/types";
 
-const SUGGESTIONS = [
-  "I need a doctor",
-  "Thank you",
-  "I need an interpreter",
-  SAMPLE_APPOINTMENT_NOTICE,
-];
+const SUGGESTIONS = ["I need a doctor", "Thank you", "I need an interpreter"];
 
 const emptyIds: string[] = [];
 const emptyRequests: PhraseRequest[] = [];
@@ -248,7 +243,7 @@ export function TranslateApp() {
               <div className="flex flex-wrap gap-2">
                 {SUGGESTIONS.map((item) => (
                   <button
-                    key={item.slice(0, 24)}
+                    key={item}
                     type="button"
                     onClick={() => {
                       setSource("en");
@@ -257,9 +252,28 @@ export function TranslateApp() {
                     }}
                     className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/40 hover:bg-primary/5"
                   >
-                    {item.includes("APPOINTMENT") ? "Sample appointment notice" : item}
+                    {item}
                   </button>
                 ))}
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Try a notice</p>
+                <div className="flex flex-wrap gap-2">
+                  {NOTICE_SAMPLES.map((notice) => (
+                    <button
+                      key={notice.id}
+                      type="button"
+                      onClick={() => {
+                        setSource("en");
+                        setTarget("rhg");
+                        setQuery(notice.text);
+                      }}
+                      className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      {notice.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
