@@ -43,3 +43,6 @@ next-env.d.ts
 # local agent scratch
 /agent-tools
 
+# Publisher PDFs (copyrighted, often >4MB). Fetch locally with scripts/fetch-book2-reference.sh
+/reference/pdfs/
+

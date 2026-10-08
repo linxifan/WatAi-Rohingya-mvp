@@ -1,10 +1,12 @@
+import { BOOK2_PHRASES } from "./sources/book2";
 import type { Phrase } from "./types";
 
 /**
  * Settlement phrasebook for Welcome Centre staff and Rohingya newcomers.
  *
  * `phrasebook` rows are published Rohingyalish sentences from NGO/learner
- * materials (RohingyaLanguage.org phrasebook, NGO phrases, beginner lessons).
+ * materials (RohingyaLanguage.org phrasebook, NGO phrases, beginner lessons,
+ * and bilingual lines printed in Rohingya Language Foundation Book 2 V1.00).
  * `composed` rows follow documented grammar (Añáttu X lage, X hoçé?) using
  * dictionary headwords. Always show the source badge in the UI.
  */
@@ -841,6 +843,7 @@ export const PHRASES: Phrase[] = [
     source: "composed",
     notes: "sóbut = proof, thíkana = address.",
   },
+  ...BOOK2_PHRASES,
 ];
 
 export const PHRASE_BY_ID = new Map(PHRASES.map((phrase) => [phrase.id, phrase]));

@@ -61,3 +61,9 @@ ICS tests live in `src/lib/ics.test.ts`. Calendar export is disabled until date 
 ## Phrase sources
 
 Published Rohingyalish sentences from RohingyaLanguage.org, plus dictionary-draft lines labelled in the UI. Drafts need native-speaker review before they are official Centre copy. A phrasebook is not a substitute for an interpreter.
+
+**Rohingya Language Book 2 (V1.00)** from the [Rohingya Language Foundation](https://www.rohingyalanguage.com/download) is a cited reference (`src/lib/sources/book2.ts`). The High PDF is a scanned pictorial textbook (© Rohingya Language Books; typically larger than 4MB), so it is **not** stored in git. Lesson pages are Rohingya-only image drills — they are not OCR’d into the matcher, because that would corrupt or invent Rohingyalish. Only bilingual lines that are actually printed in the book are indexed. To keep a local copy:
+
+```bash
+bash scripts/fetch-book2-reference.sh
+```
