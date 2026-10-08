@@ -30,8 +30,6 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:43147**
-
 ```bash
 npm test                         # matching, appointment extraction, calendar, i18n
 npm run build && npm start       # production, same port 43147
