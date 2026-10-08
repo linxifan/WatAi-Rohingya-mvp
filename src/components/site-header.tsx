@@ -16,31 +16,15 @@ export function SiteHeader() {
           </p>
           <InterfaceLanguageSelect />
         </div>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <Link href="/" className="block">
-              <h1 className="font-[family-name:var(--font-display)] text-3xl leading-none text-foreground sm:text-4xl">
-                {messages.app.title}
-              </h1>
-            </Link>
-            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              {messages.app.description}
-            </p>
-          </div>
-          <nav className="flex gap-1 text-sm">
-            <Link
-              href="/"
-              className="rounded-full px-3 py-1.5 font-medium text-foreground hover:bg-background"
-            >
-              {messages.app.navTranslate}
-            </Link>
-            <Link
-              href="/theory"
-              className="rounded-full px-3 py-1.5 text-muted-foreground hover:bg-background hover:text-foreground"
-            >
-              {messages.app.navHowItWorks}
-            </Link>
-          </nav>
+        <div>
+          <Link href="/" className="block">
+            <h1 className="font-[family-name:var(--font-display)] text-3xl leading-none text-foreground sm:text-4xl">
+              {messages.app.title}
+            </h1>
+          </Link>
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            {messages.app.description}
+          </p>
         </div>
       </div>
     </header>

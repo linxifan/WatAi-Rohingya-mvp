@@ -18,8 +18,6 @@ export const rhg = {
     partnership: null,
     description: null,
     footer: null,
-    navTranslate: null,
-    navHowItWorks: null,
     documentTitle: null,
   },
   interface: {

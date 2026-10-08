@@ -6,8 +6,6 @@ export const en = {
       "English to Rohingya — to better connect Rohingya newcomers with the support and services they need.",
     footer:
       "A phrasebook is first contact — not a substitute for a qualified Rohingya interpreter, especially for health, legal, or protection conversations.",
-    navTranslate: "Translate",
-    navHowItWorks: "How it works",
     documentTitle: "{title} — {english} to {rohingya}",
   },
   interface: {
