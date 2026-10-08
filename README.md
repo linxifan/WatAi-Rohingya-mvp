@@ -1,68 +1,61 @@
 # Ruáingga
 
-Built in partnership with the Welcome Centre, to better connect Rohingya newcomers with the support and services they need.
+Welcome Centre desk tool for **English ⇄ Rohingya**. Built so staff and newcomers can look up trusted lines at the counter — not a generic translate box.
 
-English ⇄ Rohingya lookup for a settlement desk. Typed text, English speech, and photos all go through **one** function: `translate({ text, source, target })`. Multi-line notices are split first; dates and times are kept as written.
+Rohingya has no safe public machine-translation API. This app **retrieves published phrases**. It does not call an LLM, Google Translate, or any cloud translation service.
 
-There is no Google Translate API. Rohingya is a low-resource language.
+Repository: [linxifan/WatAi-Rohingya-mvp](https://github.com/linxifan/WatAi-Rohingya-mvp)
+
+## Features
+
+- **Type or paste** English or Rohingyalish. Each line is looked up as you type (no extra Translate button).
+- **Swap direction:** English ⇄ Rohingya. The globe (interface language) is separate and does not change this.
+- **Speak English** (browser speech recognition). Rohingya speech input is not offered.
+- **Take / upload a photo** of an English notice. OCR runs **on this device**; the photo is not uploaded.
+- **Phrasebook browse** and **save** lines on this phone.
+- **Action Summary** for English appointment notices: date, time, location, what to bring. Fields are editable. Missing details stay blank on purpose.
+- **Add to Calendar** downloads a `.ics` file when a full date (with year) and a time are present. No Google/Apple login.
+- Sample appointment notice included for demos.
+
+A phrasebook is first contact. It is not a substitute for a qualified Rohingya interpreter, especially for health, legal, or protection conversations.
 
 ## Run locally
 
+Needs **Node.js 20.9+** (Next.js will refuse Node 16).
+
 ```bash
+git clone https://github.com/linxifan/WatAi-Rohingya-mvp.git
+cd WatAi-Rohingya-mvp
 npm install
 npm run dev
 ```
 
-Open [http://localhost:43147](http://localhost:43147).
-
-If you see `EADDRINUSE`, something is already bound to 43147. Stop that process, then run `npm run dev` again.
-
-## What you can do
-
-- Swap English ⇄ Rohingya
-- Type or paste a notice; each line is looked up separately
-- Speak **English** (browser speech recognition → `translate()`)
-- Photograph a notice: OCR runs **on this device**, then the same `translate()`
-- Save lines, show a match large across the desk
-- Phrasebook browse
-- After an **English** appointment notice is translated, an Action Summary lists date, time, location, and what to bring. Fields are editable. **Add to Calendar** saves an event file from the values on the card when a full date with year and a time are present. No Google or Apple login.
-
-Photos never leave the phone. Tesseract.js reads them in the browser.
-
-Rohingya speech recognition is not offered. There is no Listen/TTS in v1 — Rohingya has no reliable public voice.
-
-## Architecture
-
-```
-Typed text ──┐
-English STT ─┼──► segmentText() ──► translate({ text, source, target })
-Photo OCR  ──┘
-```
-
-- `src/lib/translate.ts` — the only translation implementation
-- `src/lib/segment.ts` — line/sentence split + date/time/place passthrough
-- `src/lib/document.ts` — `translateDocument()` maps segments through `translate()`
-- `src/lib/ocr.ts` — on-device English OCR
-- `src/lib/speech.ts` — English STT only
-- `src/lib/appointment.ts` — deterministic Action Summary extraction (English only; not translation)
-- `src/lib/ics.ts` — `.ics` calendar file from the confirmed Action Summary
-- `src/lib/i18n/` — interface language (English default; Rohingya — Coming soon falls back to English)
-
-Rohingya interface translations require native-speaker review before production use. Missing strings intentionally fall back to English rather than being generated. The globe selector changes UI labels only; it does not change English ⇄ Rohingya content direction.
+Open **http://localhost:43147**
 
 ```bash
-npm test
+npm test                         # matching, appointment extraction, calendar, i18n
+npm run build && npm start       # production, same port 43147
 ```
 
-Extractor tests live in `src/lib/appointment.test.ts`. They cover labelled dates, Canadian numeric dates, 12- and 24-hour times, prose and bullet bring-lists, and notices with missing fields. The extractor copies the matched text; it does not rewrite it.
+If you see `EADDRINUSE`, something is already using 43147. Stop that process, then run `npm run dev` again. Do not switch to 3000.
 
-ICS tests live in `src/lib/ics.test.ts`. Calendar export is disabled until date and time both parse; a missing year or an ambiguous `05/06/2026` is not guessed. Times are stored as floating local time. The event is one hour long.
+## Technology
 
-## Phrase sources
+| Piece | What we use |
+|---|---|
+| App | Next.js (App Router), TypeScript, React, Tailwind, shadcn/ui |
+| Translation | One function: `translate({ text, source, target })`. Phrasebook retrieval, not generation |
+| Matching | Normalize text → exact / alias match → synonym expansion → token overlap → Levenshtein distance. Show a sentence only if score ≥ 0.62; otherwise “no sentence yet” |
+| Word leftovers | Small lexicon gloss (e.g. doctor → `daktor`), never a made-up full sentence |
+| Photo | Tesseract.js in the browser, English model only |
+| Speech | Web Speech API, `en-CA` only |
+| Notices | Split lines; keep dates, times, and “Welcome Centre” as written |
+| Appointments | Deterministic regex on the **original English** (Canadian date/time formats). No LLM |
+| Calendar | RFC 5545 `.ics` from the confirmed Action Summary |
+| Data | `localStorage` only. No accounts, no database, no backend |
+| Phrase sources | Published Rohingyalish (RohingyaLanguage.org / Rohingya Language Foundation Book 2 bilingual lines). Dictionary-draft rows are labelled in the UI and need native-speaker review |
 
-Published Rohingyalish sentences from RohingyaLanguage.org, plus dictionary-draft lines labelled in the UI. Drafts need native-speaker review before they are official Centre copy. A phrasebook is not a substitute for an interpreter.
-
-**Rohingya Language Book 2 (V1.00)** from the [Rohingya Language Foundation](https://www.rohingyalanguage.com/download) is a cited reference (`src/lib/sources/book2.ts`). The High PDF is a scanned pictorial textbook (© Rohingya Language Books; typically larger than 4MB), so it is **not** stored in git. Lesson pages are Rohingya-only image drills — they are not OCR’d into the matcher, because that would corrupt or invent Rohingyalish. Only bilingual lines that are actually printed in the book are indexed. To keep a local copy:
+The High PDF of Book 2 is a scanned pictorial textbook and is **not** stored in git (size + copyright). Lesson pages are Rohingya-only image drills and are not OCR’d into the matcher. To keep a local copy for human reference:
 
 ```bash
 bash scripts/fetch-book2-reference.sh
