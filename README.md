@@ -4,8 +4,6 @@ Welcome Centre desk tool for **English ⇄ Rohingya**. Built so staff and newcom
 
 Rohingya has no safe public machine-translation API. This app **retrieves published phrases**. It does not call an LLM, Google Translate, or any cloud translation service.
 
-Repository: [linxifan/WatAi-Rohingya-mvp](https://github.com/linxifan/WatAi-Rohingya-mvp)
-
 ## Features
 
 - **Type or paste** English or Rohingyalish. Each line is looked up as you type (no extra Translate button).
@@ -31,11 +29,9 @@ npm run dev
 ```
 
 ```bash
-npm test                         # matching, appointment extraction, calendar, i18n
-npm run build && npm start       # production, same port 43147
+npm test
+npm run build && npm start
 ```
-
-If you see `EADDRINUSE`, something is already using 43147. Stop that process, then run `npm run dev` again. Do not switch to 3000.
 
 ## Technology
 
